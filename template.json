@@ -1,0 +1,104 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "workflows_sample_logic_app_name": {
+            "defaultValue": "sample-logic-app",
+            "type": "String"
+        },
+        "integrationAccounts_sr_IntegrationAccount_externalid": {
+            "defaultValue": "/subscriptions/2ea11eea-af44-4ada-b45b-95cd0f6856a9/resourceGroups/Gallegher_IntegrationsCoE/providers/Microsoft.Logic/integrationAccounts/sr-IntegrationAccount",
+            "type": "String"
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2017-07-01",
+            "name": "[parameters('workflows_sample_logic_app_name')]",
+            "location": "southindia",
+            "properties": {
+                "state": "Enabled",
+                "integrationAccount": {
+                    "id": "[parameters('integrationAccounts_sr_IntegrationAccount_externalid')]"
+                },
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {},
+                    "triggers": {
+                        "manual": {
+                            "type": "Request",
+                            "kind": "Http",
+                            "inputs": {
+                                "schema": {
+                                    "properties": {
+                                        "number1": {
+                                            "type": "integer"
+                                        },
+                                        "number2": {
+                                            "type": "integer"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "actions": {
+                        "Execute_JavaScript_Code": {
+                            "runAfter": {
+                                "Parse_JSON": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "JavaScriptCode",
+                            "inputs": {
+                                "code": "/*\r\nvar text = \"\" + workflowContext.trigger.outputs.body;\r\ntext = text.replace(\"\\r\\n\",\"\")\r\nreturn text;\r\nreturn text.substring(text.indexOf(\"number1\"));\r\n*/\r\nvar n1 = workflowContext.actions.Parse_JSON.outputs.body.number1;\r\nvar n2 = workflowContext.actions.Parse_JSON.outputs.body.number2;\r\nreturn  n1 + n2;"
+                            }
+                        },
+                        "Parse_JSON": {
+                            "runAfter": {},
+                            "type": "ParseJson",
+                            "inputs": {
+                                "content": "@triggerBody()",
+                                "schema": {
+                                    "properties": {
+                                        "number1": {
+                                            "type": "integer"
+                                        },
+                                        "number2": {
+                                            "type": "integer"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        },
+                        "Response": {
+                            "runAfter": {
+                                "Execute_JavaScript_Code": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Response",
+                            "kind": "Http",
+                            "inputs": {
+                                "body": {
+                                    "Addition Is": "@{outputs('Execute_JavaScript_Code')?['body']}"
+                                },
+                                "headers": {
+                                    "Content-Type": "application/json"
+                                },
+                                "statusCode": 200
+                            }
+                        }
+                    },
+                    "outputs": {}
+                },
+                "parameters": {}
+            }
+        }
+    ]
+}
